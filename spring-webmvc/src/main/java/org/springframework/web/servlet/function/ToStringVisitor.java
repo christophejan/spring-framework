@@ -70,7 +70,11 @@ class ToStringVisitor implements RouterFunctions.Visitor, RequestPredicates.Visi
 	}
 
 	@Override
-	public void attributes(Map<String, Object> attributes) {
+	public void startAttributes(Map<String, Object> attributes) {
+	}
+
+	@Override
+	public void endAttributes(Map<String, Object> attributes) {
 	}
 
 	@Override

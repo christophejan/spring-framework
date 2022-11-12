@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.springframework.web.servlet.function;
+package org.springframework.web.reactive.function.server;
 
 import java.util.Deque;
 import java.util.LinkedList;
@@ -24,6 +24,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import reactor.core.publisher.Mono;
 
 import org.springframework.core.io.Resource;
 import org.springframework.lang.Nullable;
@@ -31,7 +34,7 @@ import org.springframework.lang.Nullable;
 /**
  * @author Arjen Poutsma
  */
-class AttributesTestVisitor implements RouterFunctions.Visitor {
+class BackwardCompatibilityAttributesTestVisitor implements RouterFunctions.Visitor {
 
 	private Deque<Map<String, Object>> nestedAttributes = new LinkedList<>();
 
@@ -52,32 +55,39 @@ class AttributesTestVisitor implements RouterFunctions.Visitor {
 
 	@Override
 	public void startNested(RequestPredicate predicate) {
+		nestedAttributes.addFirst(attributes);
+		attributes = null;
 	}
 
 	@Override
 	public void endNested(RequestPredicate predicate) {
+		attributes = nestedAttributes.removeFirst();
 	}
 
 	@Override
 	public void route(RequestPredicate predicate, HandlerFunction<?> handlerFunction) {
-		routerFunctionsAttributes.add(nestedAttributes.stream()
-				.filter(Objects::nonNull)
-				.collect(Collectors.toUnmodifiableList()));
+		Stream<Map<String, Object>> current = Optional.ofNullable(attributes).stream();
+		Stream<Map<String, Object>> nested = nestedAttributes.stream().filter(Objects::nonNull);
+		routerFunctionsAttributes.add(Stream.concat(current, nested).collect(Collectors.toUnmodifiableList()));
+		attributes = null;
 	}
 
 	@Override
-	public void resources(Function<ServerRequest, Optional<Resource>> lookupFunction) {
+	public void resources(Function<ServerRequest, Mono<Resource>> lookupFunction) {
 	}
 
 	@Override
 	public void startAttributes(Map<String, Object> attributes) {
-		nestedAttributes.addFirst(attributes);
-		this.visitCount++;
 	}
 
 	@Override
 	public void endAttributes(Map<String, Object> attributes) {
-		nestedAttributes.removeFirst();
+	}
+
+	@Override
+	public void attributes(Map<String, Object> attributes) {
+		this.attributes = attributes;
+		this.visitCount++;
 	}
 
 	@Override

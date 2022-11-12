@@ -228,7 +228,7 @@ public class RouterFunctionBuilderTests {
 	}
 
 	@Test
-	public void attributes() {
+	public void backwardCompatibilityAttributes() {
 		RouterFunction<ServerResponse> route = RouterFunctions.route()
 				.GET("/atts/1", request -> ServerResponse.ok().build())
 				.withAttribute("foo", "bar")
@@ -251,7 +251,7 @@ public class RouterFunctionBuilderTests {
 				.withAttribute("foo", "n1")
 				.build();
 
-		AttributesTestVisitor visitor = new AttributesTestVisitor();
+		BackwardCompatibilityAttributesTestVisitor visitor = new BackwardCompatibilityAttributesTestVisitor();
 		route.accept(visitor);
 		assertThat(visitor.routerFunctionsAttributes()).containsExactly(
 				List.of(Map.of("foo", "bar", "baz", "qux")),
@@ -261,5 +261,52 @@ public class RouterFunctionBuilderTests {
 				List.of(Map.of("foo", "n3"), Map.of("foo", "n2"), Map.of("foo", "n1"))
 		);
 		assertThat(visitor.visitCount()).isEqualTo(7);
+	}
+
+	@Test
+	public void attributes() {
+		RouterFunction<ServerResponse> route = RouterFunctions.route()
+				.GET("/atts/1", request -> ServerResponse.ok().build())
+				.withAttribute("foo", "bar")
+				.withAttribute("baz", "qux")
+				.GET("/atts/2", request -> ServerResponse.ok().build())
+				.withAttributes(atts -> {
+					atts.put("foo", "bar");
+					atts.put("baz", "qux");
+				})
+				.path("/atts", b1 -> b1
+						.GET("/3", request -> ServerResponse.ok().build())
+						.withAttribute("foo", "bar")
+						.GET("/4", request -> ServerResponse.ok().build())
+						.withAttribute("baz", "qux")
+						.path("/5", b2 -> b2
+							.GET(request -> ServerResponse.ok().build())
+							.withAttribute("foo", "n3"))
+						.withAttribute("foo", "n2")
+				)
+				.withAttribute("foo", "n1")
+				.add(RouterFunctions.route()
+						.GET("/atts/6", request -> ServerResponse.ok().build())
+						.withAttribute("a6", "6")
+						.GET("/atts/7", request -> ServerResponse.ok().build())
+						.withAttribute("a7", "7")
+						.build()
+						.withAttribute("a6&7", "6&7")
+				)
+				.build()
+				.withAttribute("foo", "n0");
+
+		AttributesTestVisitor visitor = new AttributesTestVisitor();
+		route.accept(visitor);
+		assertThat(visitor.routerFunctionsAttributes()).containsExactly(
+				List.of(Map.of("foo", "bar", "baz", "qux"), Map.of("foo", "n0")),
+				List.of(Map.of("foo", "bar", "baz", "qux"), Map.of("foo", "n0")),
+				List.of(Map.of("foo", "bar"), Map.of("foo", "n1"), Map.of("foo", "n0")),
+				List.of(Map.of("baz", "qux"), Map.of("foo", "n1"), Map.of("foo", "n0")),
+				List.of(Map.of("foo", "n3"), Map.of("foo", "n2"), Map.of("foo", "n1"), Map.of("foo", "n0")),
+				List.of(Map.of("a6", "6"), Map.of("a6&7", "6&7"), Map.of("foo", "n0")),
+				List.of(Map.of("a7", "7"), Map.of("a6&7", "6&7"), Map.of("foo", "n0"))
+		);
+		assertThat(visitor.visitCount()).isEqualTo(11);
 	}
 }

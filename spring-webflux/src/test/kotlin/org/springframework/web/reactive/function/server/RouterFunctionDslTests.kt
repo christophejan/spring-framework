@@ -27,7 +27,6 @@ import org.springframework.http.MediaType.*
 import org.springframework.web.reactive.function.server.support.ServerRequestWrapper
 import org.springframework.web.testfixture.http.server.reactive.MockServerHttpRequest.*
 import org.springframework.web.testfixture.server.MockServerWebExchange
-import org.springframework.web.reactive.function.server.AttributesTestVisitor
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 import java.security.Principal
@@ -158,9 +157,9 @@ class RouterFunctionDslTests {
 	}
 
 	@Test
-	fun attributes() {
-		val visitor = AttributesTestVisitor()
-		attributesRouter.accept(visitor)
+	fun backwardCompatibilityAttributes() {
+		val visitor = BackwardCompatibilityAttributesTestVisitor()
+		backwardCompatibilityAttributesRouter.accept(visitor)
 		assertThat(visitor.routerFunctionsAttributes()).containsExactly(
 			listOf(mapOf("foo" to "bar", "baz" to "qux")),
 			listOf(mapOf("foo" to "bar", "baz" to "qux")),
@@ -169,6 +168,22 @@ class RouterFunctionDslTests {
 			listOf(mapOf("foo" to "n3"), mapOf("foo" to "n2"), mapOf("foo" to "n1"))
 		);
 		assertThat(visitor.visitCount()).isEqualTo(7);
+	}
+
+	@Test
+	fun attributes() {
+		val visitor = AttributesTestVisitor()
+		attributesRouter.accept(visitor)
+		assertThat(visitor.routerFunctionsAttributes()).containsExactly(
+			listOf(mapOf("foo" to "bar", "baz" to "qux"), mapOf("foo" to "n0")),
+			listOf(mapOf("foo" to "bar", "baz" to "qux"), mapOf("foo" to "n0")),
+			listOf(mapOf("foo" to "bar"), mapOf("foo" to "n1"), mapOf("foo" to "n0")),
+			listOf(mapOf("baz" to "qux"), mapOf("foo" to "n1"), mapOf("foo" to "n0")),
+			listOf(mapOf("foo" to "n3"), mapOf("foo" to "n2"), mapOf("foo" to "n1"), mapOf("foo" to "n0")),
+			listOf(mapOf("a6" to "6"), mapOf("a6&7" to "6&7"), mapOf("foo" to "n0")),
+			listOf(mapOf("a7" to "7"), mapOf("a6&7" to "6&7"), mapOf("foo" to "n0")),
+		);
+		assertThat(visitor.visitCount()).isEqualTo(11);
 	}
 
 	@Test
@@ -274,7 +289,7 @@ class RouterFunctionDslTests {
 		}
 	}
 
-	private val attributesRouter = router {
+	private val backwardCompatibilityAttributesRouter = router {
 		GET("/atts/1") {
 			ok().build()
 		}
@@ -306,6 +321,52 @@ class RouterFunctionDslTests {
 		}
 		withAttribute("foo", "n1")
 	}
+
+	private val attributesRouter = router {
+		GET("/atts/1") {
+			ok().build()
+		}
+		withAttribute("foo", "bar")
+		withAttribute("baz", "qux")
+		GET("/atts/2") {
+			ok().build()
+		}
+		withAttributes { atts ->
+			atts["foo"] = "bar"
+			atts["baz"] = "qux"
+		}
+		"/atts".nest {
+			GET("/3") {
+				ok().build()
+			}
+			withAttribute("foo", "bar")
+			GET("/4") {
+				ok().build()
+			}
+			withAttribute("baz", "qux")
+			"/5".nest {
+				GET {
+					ok().build()
+				}
+				withAttribute("foo", "n3")
+			}
+			withAttribute("foo", "n2")
+		}
+		withAttribute("foo", "n1")
+		add(
+			router {
+				GET("/atts/6") {
+					ok().build()
+				}
+				withAttribute("a6", "6")
+				GET("/atts/7") {
+					ok().build()
+				}
+				withAttribute("a7", "7")
+			}
+		)
+		withAttribute("a6&7", "6&7")
+	}.withAttribute("foo", "n0")
 
 	@Suppress("UNUSED_PARAMETER")
 	private fun handleFromClass(req: ServerRequest) = ServerResponse.ok().build()

@@ -21,10 +21,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import reactor.core.publisher.Mono;
 
@@ -55,21 +53,17 @@ class AttributesTestVisitor implements RouterFunctions.Visitor {
 
 	@Override
 	public void startNested(RequestPredicate predicate) {
-		nestedAttributes.addFirst(attributes);
-		attributes = null;
 	}
 
 	@Override
 	public void endNested(RequestPredicate predicate) {
-		attributes = nestedAttributes.removeFirst();
 	}
 
 	@Override
 	public void route(RequestPredicate predicate, HandlerFunction<?> handlerFunction) {
-		Stream<Map<String, Object>> current = Optional.ofNullable(attributes).stream();
-		Stream<Map<String, Object>> nested = nestedAttributes.stream().filter(Objects::nonNull);
-		routerFunctionsAttributes.add(Stream.concat(current, nested).collect(Collectors.toUnmodifiableList()));
-		attributes = null;
+		routerFunctionsAttributes.add(nestedAttributes.stream()
+				.filter(Objects::nonNull)
+				.collect(Collectors.toUnmodifiableList()));
 	}
 
 	@Override
@@ -77,9 +71,14 @@ class AttributesTestVisitor implements RouterFunctions.Visitor {
 	}
 
 	@Override
-	public void attributes(Map<String, Object> attributes) {
-		this.attributes = attributes;
+	public void startAttributes(Map<String, Object> attributes) {
+		nestedAttributes.addFirst(attributes);
 		this.visitCount++;
+	}
+
+	@Override
+	public void endAttributes(Map<String, Object> attributes) {
+		nestedAttributes.removeFirst();
 	}
 
 	@Override

@@ -928,12 +928,27 @@ public abstract class RouterFunctions {
 		void resources(Function<ServerRequest, Mono<Resource>> lookupFunction);
 
 		/**
-		 * Receive notification of a router function with attributes. The
-		 * given attributes apply to the router notification that follows this one.
-		 * @param attributes the attributes that apply to the following router
-		 * @since 5.3
+		 * Receive notification of the beginning of a router function with attributes.
+		 * @param attributes the attributes of the router function
+		 * @since 6.0
 		 */
-		void attributes(Map<String, Object> attributes);
+		void startAttributes(Map<String, Object> attributes);
+
+		/**
+		 * Receive notification of the end of a router function with attributes.
+		 * @param attributes the attributes of the router function
+		 * @since 6.0
+		 */
+		void endAttributes(Map<String, Object> attributes);
+
+		/**
+		 * Receive notification of the beginning of a router function with attributes.
+		 * @param attributes the attributes of the router function
+		 * @since 5.3
+		 * @deprecated as of 6.0, use {@link Visitor#startAttributes(Map)} instead
+		 */
+		@Deprecated(since = "6.0")
+		default void attributes(Map<String, Object> attributes) {};
 
 		/**
 		 * Receive notification of an unknown router function. This method is called for router
@@ -1186,8 +1201,10 @@ public abstract class RouterFunctions {
 
 		@Override
 		public void accept(Visitor visitor) {
+			visitor.startAttributes(this.attributes);
 			visitor.attributes(this.attributes);
 			this.delegate.accept(visitor);
+			visitor.endAttributes(this.attributes);
 		}
 
 		@Override
